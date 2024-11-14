@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "dZrwEk1r2fBwazs2EqLhRcwG+F+MOcHV/UOeW1ar44U=",
+  "Source": "MerchantService",
+  "BasePath": "_content/MerchantService",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

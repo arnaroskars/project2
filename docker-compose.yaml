@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"  # Port for RabbitMQ protocol (used by clients)
+      - "15672:15672"  # Port for RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    
+
+
+
+
+  order_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: orderpassword
+      POSTGRES_DB: ordersDB
+    volumes:
+      - order_data:/var/lib/postgresql/data
+
+  inventory_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: inventoryuser
+      POSTGRES_PASSWORD: inventorypassword
+      POSTGRES_DB: inventoryDB
+    volumes:
+      - inventory_data:/var/lib/postgresql/data
+
+  merchant_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: merchantuser
+      POSTGRES_PASSWORD: merchantpassword
+      POSTGRES_DB: merchantsDB
+    volumes:
+      - merchant_data:/var/lib/postgresql/data
+
+  buyer_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: buyeruser
+      POSTGRES_PASSWORD: buyerpassword
+      POSTGRES_DB: buyersDB
+    volumes:
+      - buyer_data:/var/lib/postgresql/data
+
+  payment_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: paymentuser
+      POSTGRES_PASSWORD: paymentpassword
+      POSTGRES_DB: paymentsDB
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  email_db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: emailuser
+      POSTGRES_PASSWORD: emailpassword
+      POSTGRES_DB: emailsDB
+    volumes:
+      - email_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
+
+
+
+  orderservice:
+    build:
+      context: ./OrderService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__OrderDatabase=Host=order_db;Database=ordersDB;Username=orderuser;Password=orderpassword
+      - InventoryService__BaseUrl=http://inventory_service:8080
+      - MerchantService__BaseUrl=http://merchant_service:8080
+      - BuyerService__BaseUrl=http://buyer_service:8080
+    depends_on:
+      - order_db
+      - inventory_service
+      - merchant_service
+      - buyer_service
+    ports:
+      - "5000:8080"
+
+  inventory_service:
+    build:
+      context: ./InventoryService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__InventoryDatabase=Host=inventory_db;Database=inventoryDB;Username=inventoryuser;Password=inventorypassword
+    depends_on:
+      - inventory_db
+    ports:
+      - "5001:8080"
+
+  merchant_service:
+    build:
+      context: ./MerchantService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MerchantDatabase=Host=merchant_db;Database=merchantsDB;Username=merchantuser;Password=merchantpassword
+    depends_on:
+      - merchant_db
+    ports:
+      - "5002:8080"
+
+  buyer_service:
+    build:
+      context: ./BuyerService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__BuyerDatabase=Host=buyer_db;Database=buyersDB;Username=buyeruser;Password=buyerpassword
+    depends_on:
+      - buyer_db
+    ports:
+      - "5003:8080"
+
+  payment_service:
+    build:
+      context: ./PaymentService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__PaymentDatabase=Host=payment_db;Database=paymentsDB;Username=paymentuser;Password=paymentpassword
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      payment_db:
+        condition: service_started
+    ports:
+      - "5004:8080"
+
+  email_service:
+    build:
+      context: ./EmailService
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__EmailDatabase=Host=email_db;Database=emailsDB;Username=emailuser;Password=emailpassword
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      email_db:
+        condition: service_started
+    ports:
+      - "5005:8080"
+
+
+volumes:
+  order_data:
+  inventory_data:
+  merchant_data:
+  buyer_data:
+  payment_data:
+  email_data:
